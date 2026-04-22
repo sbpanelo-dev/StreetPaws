@@ -11,6 +11,7 @@
     "bcryptjs": "^3.0.3"
   },
   "devDependencies": {
+    "@nestjs/cli": "^11.0.21",
     "@types/bcryptjs": "^2.4.6"
   }
 }
