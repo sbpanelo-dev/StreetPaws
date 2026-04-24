@@ -18,54 +18,47 @@ export class AnimalsController {
   constructor(private db: DatabaseService) {}
 
   // ✅ 1. List available (Public)
-  @Get('available')
-  async getAvailableAnimals() {
-    const animals = await this.db.query(`
-      SELECT animal_id, name, type, breed, age_months, sex, description, status
-      FROM animals WHERE status = 'Available' ORDER BY name
-    `);
-    return { success: true, count: animals.length, animals };
-  }
+  @Get()
+async getAllAnimals() {
+  const animals = await this.db.query(`
+    SELECT animal_id, name, type, breed, age_months, sex, description, status
+    FROM animals
+    ORDER BY animal_id DESC
+  `);
+
+  return animals; // 🔥 IMPORTANT: array lang
+}
 
   // ✅ 2. Create animal (Admin)
-  @Post()  // ← MISSING THIS!
-  @UseGuards(JwtAuthGuard)
-  async createAnimal(@Body() animalData: any, @Request() req: any) {
-    console.log('📦 CREATE:', animalData);
-    
-    if (req.user.role !== 'Admin') {
-      return { error: 'Admin required' };
-    }
-
-    const validTypes = ['Dog', 'Cat', 'Other'];
-    const validSex = ['Male', 'Female'];
-    
-    if (!validTypes.includes(animalData.type)) {
-      return { error: `type: ${validTypes.join(', ')}`, received: animalData.type };
-    }
-    if (!validSex.includes(animalData.sex)) {
-      return { error: `sex: ${validSex.join(', ')}`, received: animalData.sex };
-    }
-
-    const result = await this.db.query(
-      `INSERT INTO animals (name, type, breed, age_months, sex, description, status) 
-       VALUES (?, ?, ?, ?, ?, ?, 'Available')`,
-      [
-        animalData.name,
-        animalData.type,
-        animalData.breed || null,
-        parseInt(animalData.age_months),
-        animalData.sex,
-        animalData.description || null
-      ]
-    );
-
-    const newAnimal = await this.db.queryOne(
-      'SELECT * FROM animals WHERE animal_id = ?', [result.insertId]
-    );
-
-    return { success: true, animalId: result.insertId, animal: newAnimal };
+@Post()
+@UseGuards(JwtAuthGuard)
+async createAnimal(@Body() animalData: any, @Request() req: any) {
+  if (req.user.role !== 'Admin') {
+    return { error: 'Admin required' };
   }
+
+  try {
+  const result: any = await this.db.query(`
+    INSERT INTO animals (name, type, breed, age_months, sex, description, status)
+    VALUES (?, ?, ?, ?, ?, ?, 'Available')
+  `, [
+    animalData.name,
+    animalData.type,
+    animalData.breed,
+    animalData.age_months,
+    animalData.sex,
+    animalData.description
+  ]);
+
+  console.log("✅ INSERT RESULT:", result);
+
+  return result;
+
+} catch (err) {
+  console.error("❌ INSERT ERROR:", err);
+  throw err;
+}
+}
 
   // ✅ 3. Get single (Public)
   @Get(':id')

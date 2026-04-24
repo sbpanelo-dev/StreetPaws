@@ -5,7 +5,6 @@ import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class AuthService {
-  refresh: any;
   constructor(
     private db: DatabaseService,
     private jwtService: JwtService,
@@ -14,20 +13,35 @@ export class AuthService {
   async validateUser(username: string, password: string): Promise<any> {
     const user = await this.db.queryOne(
       'SELECT * FROM users WHERE username = ?',
-      [username]
+      [username.trim()]
     );
 
-    if (user && await bcrypt.compare(password, user.password)) {
-      const { password, ...result } = user;
-      return result;
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
     }
-    return null;
+
+    // ✅ Fix: Single password field check
+    const passwordField = user.password_hash || user.password;
+    const isValidPassword = await bcrypt.compare(password, passwordField);
+    
+    if (!isValidPassword) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // ✅ Fix: Destructure ALL password fields at once
+    const { password: _, password_hash, ...result } = user;
+    return result;
   }
 
   async login(user: any) {
-    const payload = { username: user.username, sub: user.user_id, role: user.role };
+    const payload = { 
+      username: user.username, 
+      sub: user.user_id, 
+      role: user.role 
+    };
+    
     return {
-      access_token: this.jwtService.sign(payload),
+      token: this.jwtService.sign(payload),
       user: { 
         user_id: user.user_id, 
         username: user.username, 
@@ -37,6 +51,6 @@ export class AuthService {
   }
 
   async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, 10);
+    return bcrypt.hash(password, 12);
   }
 }
