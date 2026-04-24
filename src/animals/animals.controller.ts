@@ -121,26 +121,61 @@ async createAnimal(@Body() animalData: any, @Request() req: any) {
   }
 
   // ✅ 6. Adopt (Any logged-in user)
-  @Post(':id/adopt')
-  @UseGuards(JwtAuthGuard)
-  async adoptAnimal(@Param('id') id: string, @Body() body: any, @Request() req: any) {
-    const animal = await this.db.queryOne(
-      `SELECT * FROM animals WHERE animal_id=? AND status='Available'`, [id]
-    );
-    if (!animal) return { error: 'Animal not available' };
+@Post(':id/adopt')
+@UseGuards(JwtAuthGuard)
+async adoptAnimal(@Param('id') id: string, @Body() body: any) {
+  try {
+    // 🔍 Input validation
+    if (!body.name || !body.contact) {
+      return { error: 'Name and contact required' };
+    }
 
-    const adopterResult = await this.db.query(
+    console.log(`🩺 Adopt attempt: animal_id=${id}, adopter=${body.name}`);
+
+    // 1. Check animal exists + available
+    const animal = await this.db.queryOne(
+      `SELECT animal_id, name, type FROM animals WHERE animal_id=? AND status='Available'`, 
+      [id]
+    );
+    if (!animal) {
+      return { error: 'Animal not available for adoption' };
+    }
+
+    // 2. Insert adopter (handle insertId correctly)
+    const adopterQuery = await this.db.query(
       `INSERT INTO adopters (name, contact, address) VALUES (?, ?, ?)`,
       [body.name, body.contact, body.address || null]
     );
-
-    const adopterId = (adopterResult as any).insertId;
+    
+    // ✅ MySQL returns insertId on the RESULT object
+    const adopterId = adopterQuery.insertId;
+    
+    // 3. Link adoption
     await this.db.query(
       `INSERT INTO adoptions (animal_id, adopter_id, adoption_date) VALUES (?, ?, CURDATE())`,
       [id, adopterId]
     );
-    await this.db.query(`UPDATE animals SET status='Adopted' WHERE animal_id=?`, [id]);
 
-    return { success: true, message: `${animal.name} adopted!`, adopterId };
+    // 4. Update animal status
+    await this.db.query(
+      `UPDATE animals SET status='Adopted' WHERE animal_id=?`, 
+      [id]
+    );
+
+    console.log(`✅ Adopted: ${animal.name} to adopter ${adopterId}`);
+    
+    return { 
+      success: true, 
+      message: `${animal.name} successfully adopted!`,
+      animalId: parseInt(id),
+      adopterId 
+    };
+  } catch (error: any) {
+    console.error('🚨 ADOPT ERROR:', error);
+    return { 
+      error: error.message || 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    };
   }
+}
 }
