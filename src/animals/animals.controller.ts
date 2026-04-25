@@ -8,14 +8,48 @@ import {
   Body, 
   ParseIntPipe, 
   UseGuards, 
+  UseInterceptors,
+  UploadedFile,
   Request 
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DatabaseService } from '../database/database.service';
 
 @Controller('animals')
 export class AnimalsController {
   constructor(private db: DatabaseService) {}
+
+@Post('upload')
+@UseGuards(JwtAuthGuard)
+@UseInterceptors(
+  FileInterceptor('image', {
+    storage: diskStorage({
+      destination: './uploads',
+      filename: (req, file, cb) => {
+        const uniqueName =
+          Date.now() +
+          '-' +
+          Math.round(Math.random() * 1e9) +
+          extname(file.originalname);
+
+        cb(null, uniqueName);
+      },
+    }),
+  }),
+)
+async uploadImage(@UploadedFile() file: Express.Multer.File) {
+  if (!file) {
+    return { error: 'No file uploaded' };
+  }
+
+  return {
+    photo: `/uploads/${file.filename}`,
+  };
+}
+
 
   // ✅ 1. List available (Public)
   @Get()
@@ -47,7 +81,8 @@ async createAnimal(@Body() animalData: any, @Request() req: any) {
     animalData.breed,
     animalData.age_months,
     animalData.sex,
-    animalData.description
+    animalData.description,
+    animalData.photo
   ]);
 
   console.log("✅ INSERT RESULT:", result);
