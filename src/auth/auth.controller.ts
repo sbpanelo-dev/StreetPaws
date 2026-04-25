@@ -33,59 +33,59 @@ export class AuthController {
   }
 
   @Post('register')
-  async register(@Body() body: { 
-    username: string; 
-    password: string; 
-    role?: 'Admin' | 'User' | 'Staff'; 
-    name?: string;
-    email?: string;
-  }) {
-    try {
-      const existingUser = await this.db.queryOne(
-        'SELECT user_id FROM users WHERE username = ?',
-        [body.username.trim()]
-      );
-      
-      if (existingUser) {
-        return { 
-          error: true,
-          message: 'Username already exists'
-        };
-      }
-
-      const hashedPassword = await this.authService.hashPassword(body.password);
-      
-      const result = await this.db.query(
-        `INSERT INTO users (username, password_hash, role, name, email) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [
-          body.username.trim(),
-          hashedPassword, 
-          body.role || 'User',
-          body.name || body.username,
-          body.email || null
-        ]
-      );
-
-      const newUser = await this.db.queryOne(
-        'SELECT user_id, username, role, name, email, created_at FROM users WHERE user_id = ?',
-        [result.insertId]
-      );
-
-      return {
-        success: true,
-        message: 'User registered successfully!',
-        user: newUser
-      };
-    } catch (error) {
-      console.error('Register error:', error);
+async register(@Body() body: { 
+  username: string; 
+  password: string; 
+  role?: 'Admin' | 'User' | 'Staff'; 
+  name?: string;
+  email?: string;
+}) {
+  try {
+    const existingUser = await this.db.queryOne(
+      'SELECT user_id FROM users WHERE username = ?',
+      [body.username.trim()]
+    );
+    
+    if (existingUser) {
       return { 
         error: true,
-        message: error instanceof Error ? error.message : 'Registration failed'
+        message: 'Username already exists'
       };
     }
-  }
 
+    const hashedPassword = await this.authService.hashPassword(body.password);
+    
+    // ✅ FIXED: Use 'password' column (matches your DB schema)
+    const result = await this.db.query(
+      `INSERT INTO users (username, password, role, name, email) 
+       VALUES (?, ?, ?, ?, ?)`,  // ← CHANGED password_hash → password
+      [
+        body.username.trim(),
+        hashedPassword, 
+        body.role || 'User',
+        body.name || body.username,
+        body.email || null
+      ]
+    );
+
+    const newUser = await this.db.queryOne(
+      'SELECT user_id, username, role, name, email, created_at FROM users WHERE user_id = ?',
+      [result.insertId]
+    );
+
+    return {
+      success: true,
+      message: 'User registered successfully!',
+      user: newUser
+    };
+  } catch (error) {
+    console.error('Register error:', error);
+    return { 
+      error: true,
+      message: error instanceof Error ? error.message : 'Registration failed'
+    };
+  }
+}
   @Get('hash-test')
   async hashTest(@Query('password') password: string) {
     const hash = await this.authService.hashPassword(password || 'password');
