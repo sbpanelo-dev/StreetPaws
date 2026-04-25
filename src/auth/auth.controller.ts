@@ -6,10 +6,8 @@ import {
   Query,
   UnauthorizedException 
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { DatabaseService } from '../database/database.service';
 import { AuthService } from './auth.service';
-import * as bcrypt from 'bcryptjs';
 
 @Controller('auth')
 export class AuthController {
@@ -24,7 +22,6 @@ export class AuthController {
       const user = await this.authService.validateUser(body.username, body.password);
       return this.authService.login(user);
     } catch (error) {
-      // ✅ Fixed: Proper error handling
       if (error instanceof UnauthorizedException) {
         throw error;
       }
@@ -33,70 +30,70 @@ export class AuthController {
   }
 
   @Post('register')
-async register(@Body() body: { 
-  username: string; 
-  password: string; 
-  role?: 'Admin' | 'User' | 'Staff'; 
-  name?: string;
-  email?: string;
-}) {
-  try {
-    const existingUser = await this.db.queryOne(
-      'SELECT user_id FROM users WHERE username = ?',
-      [body.username.trim()]
-    );
-    
-    if (existingUser) {
+  async register(@Body() body: { 
+    username: string; 
+    password: string; 
+    role?: 'Admin' | 'User' | 'Staff'; 
+    name?: string;
+    email?: string;
+  }) {
+    try {
+      // Check if user exists
+      const existingUser = await this.db.queryOne(
+        'SELECT user_id FROM users WHERE username = ?',
+        [body.username.trim()]
+      );
+      
+      if (existingUser) {
+        return { 
+          error: true,
+          message: 'Username already exists'
+        };
+      }
+
+      // Hash password
+      const hashedPassword = await this.authService.hashPassword(body.password);
+      
+      // ✅ FIXED - Safe columns only (works with your current DB)
+      const result = await this.db.query(
+        'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+        [
+          body.username.trim(),
+          hashedPassword, 
+          body.role || 'User'
+        ]
+      );
+
+      // Get new user (safe SELECT)
+      const newUser = await this.db.queryOne(
+        'SELECT user_id, username, role, created_at FROM users WHERE user_id = ?',
+        [result.insertId]
+      );
+
+      return {
+        success: true,
+        message: 'User registered successfully!',
+        user: newUser
+      };
+    } catch (error) {
+      console.error('Register error:', error);
       return { 
         error: true,
-        message: 'Username already exists'
+        message: error instanceof Error ? error.message : 'Registration failed'
       };
     }
-
-    const hashedPassword = await this.authService.hashPassword(body.password);
-    
-    // ✅ FIXED: Use 'password' column (matches your DB schema)
-    const result = await this.db.query(
-      `INSERT INTO users (username, password, role, name, email) 
-       VALUES (?, ?, ?, ?, ?)`,  // ← CHANGED password_hash → password
-      [
-        body.username.trim(),
-        hashedPassword, 
-        body.role || 'User',
-        body.name || body.username,
-        body.email || null
-      ]
-    );
-
-    const newUser = await this.db.queryOne(
-      'SELECT user_id, username, role, name, email, created_at FROM users WHERE user_id = ?',
-      [result.insertId]
-    );
-
-    return {
-      success: true,
-      message: 'User registered successfully!',
-      user: newUser
-    };
-  } catch (error) {
-    console.error('Register error:', error);
-    return { 
-      error: true,
-      message: error instanceof Error ? error.message : 'Registration failed'
-    };
   }
-}
+
   @Get('hash-test')
   async hashTest(@Query('password') password: string) {
     const hash = await this.authService.hashPassword(password || 'password');
     return { 
       original: password || 'password', 
       hash,
-      message: 'Copy this hash to DB password_hash column'
+      message: 'Copy this hash to DB password column for testing'
     };
   }
 
-  // 🔥 DEBUG ENDPOINT - Remove after fixing
   @Get('debug-login')
   async debugLogin(@Query('username') username: string, @Query('password') password: string) {
     try {
@@ -110,6 +107,7 @@ async register(@Body() body: {
       const passField = user.password_hash || user.password;
       console.log('🔑 PASS FIELD:', passField ? 'EXISTS' : 'MISSING');
 
+      const bcrypt = await import('bcryptjs');
       const isValid = await bcrypt.compare(password || '', passField || '');
       console.log('✅ BCRYPT:', isValid);
 
