@@ -55,7 +55,7 @@ async uploadImage(@UploadedFile() file: Express.Multer.File) {
   @Get()
 async getAllAnimals() {
   const animals = await this.db.query(`
-    SELECT animal_id, name, type, breed, age_months, sex, description, status
+    SELECT animal_id, name, type, breed, age_months, sex, description, status,photo
     FROM animals
     ORDER BY animal_id DESC
   `);
@@ -73,8 +73,8 @@ async createAnimal(@Body() animalData: any, @Request() req: any) {
 
   try {
   const result: any = await this.db.query(`
-    INSERT INTO animals (name, type, breed, age_months, sex, description, status)
-    VALUES (?, ?, ?, ?, ?, ?, 'Available')
+    INSERT INTO animals (name, type, breed, age_months, sex, description, status,photo)
+    VALUES (?, ?, ?, ?, ?, ?, 'Available', ?)
   `, [
     animalData.name,
     animalData.type,
