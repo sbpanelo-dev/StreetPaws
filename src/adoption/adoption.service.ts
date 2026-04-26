@@ -51,37 +51,36 @@ async createRequest(data: any) {
 }
 
   // 🆕 Works with request_id PK + your exact columns
-  async findAllRequests() {
-    const requests = await this.db.query(`
-      SELECT 
-        ar.request_id as id,
-        ar.user_id,
-        COALESCE(u.username, 'Unknown') as username,
-        ar.animal_id,
-        COALESCE(a.name, 'Unknown') as animal_name,
-        COALESCE(a.type, 'Unknown') as animal_type,
-        ar.full_name,
-        ar.email,
-        ar.phone,
-        ar.address,
-        ar.reason,
-        ar.experience,
-        CASE 
-          WHEN ar.status = 'Pending' THEN 'pending'
-          WHEN ar.status = 'Approved' THEN 'approved'
-          WHEN ar.status = 'Rejected' THEN 'rejected'
-          ELSE ar.status 
-        END as status,
-        ar.created_at as request_date
-      FROM adoption_requests ar
-      LEFT JOIN users u ON ar.user_id = u.user_id
-      LEFT JOIN animals a ON ar.animal_id = a.animal_id
-      ORDER BY ar.created_at DESC
-    `);
+ async findAllRequests() {
+  const requests = await this.db.query(`
+    SELECT 
+      ar.request_id as id,
+      ar.user_id,
+      COALESCE(u.username, 'Unknown User') as username,
+      ar.animal_id,
+      COALESCE(a.name, 'No Animal') as animal_name,
+      COALESCE(a.type, 'Unknown') as animal_type,
+      ar.full_name,
+      ar.email,
+      ar.phone,
+      ar.address,
+      ar.reason,
+      ar.experience,
+      CASE 
+        WHEN ar.status = 'Pending' THEN 'pending'
+        WHEN ar.status = 'Approved' THEN 'approved'
+        WHEN ar.status = 'Rejected' THEN 'rejected'
+        ELSE LOWER(ar.status)
+      END as status,
+      ar.created_at as request_date
+    FROM adoption_requests ar
+    LEFT JOIN users u ON ar.user_id = u.user_id AND ar.user_id IS NOT NULL
+    LEFT JOIN animals a ON ar.animal_id = a.animal_id
+    ORDER BY ar.created_at DESC
+  `);
 
-    return requests;
-  }
-
+  return requests;
+}
   // 🆕 Works with request_id + your status enum
   async updateStatus(id: number, status: 'Approved' | 'Rejected') {
     // Check if exists (using request_id)
