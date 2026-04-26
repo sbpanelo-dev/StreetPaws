@@ -7,7 +7,6 @@ export class AdoptionService {
 
   async createRequest(data: any) {
     const {
-      user_id,
       animal_id,
       full_name,
       email,

@@ -6,9 +6,14 @@ export class AdoptionController {
   constructor(private readonly adoptionService: AdoptionService) {}
 
   @Post()
-  create(@Body() body: any, @Req() req: any) {
-    return this.adoptionService.createRequest({ ...body, user_id: req.user.user_id });
+async create(@Body() body: any, @Req() req: any) {
+  try {
+    return await this.adoptionService.createRequest(body);
+  } catch (error) {
+    console.error('Adoption create error:', error);
+    throw error;
   }
+}
 
   @Get('requests')
   findAllRequests() {
