@@ -18,38 +18,35 @@ async createRequest(data: any) {
   return { message: "Request submitted" };
 }
 
-  // 🆕 Works with request_id PK + your exact columns
- async findAllRequests() {
+async findAllRequests() {
   const requests = await this.db.query(`
     SELECT 
       request_id as id,
       animal_id,
-      COALESCE(a.name, 'Unknown') as animal_name,
-      COALESCE(a.type, 'Unknown') as animal_type,
       full_name,
       email,
       phone,
       address,
       reason,
       experience,
-      CASE status
-        WHEN 'Pending' THEN 'pending'
-        WHEN 'Approved' THEN 'approved'
-        WHEN 'Rejected' THEN 'rejected'
+      CASE 
+        WHEN status = 'Pending' THEN 'pending'
+        WHEN status = 'Approved' THEN 'approved'
+        WHEN status = 'Rejected' THEN 'rejected'
+        ELSE status
       END as status,
       created_at as request_date
-    FROM adoption_requests ar
-    LEFT JOIN animals a ON ar.animal_id = a.animal_id
+    FROM adoption_requests
     ORDER BY created_at DESC
   `);
 
-  return requests.map(req => ({
+  return requests.map((req: any) => ({
     id: req.id,
     user_id: null,
     username: 'User',
     animal_id: req.animal_id,
-    animal_name: req.animal_name,
-    animal_type: req.animal_type,
+    animal_name: 'Animal ' + req.animal_id,
+    animal_type: 'Pet',
     full_name: req.full_name,
     email: req.email,
     phone: req.phone,
