@@ -5,7 +5,20 @@ import { DatabaseService } from '../database/database.service';
 export class AdoptionService {
   constructor(private db: DatabaseService) {}
 
-  async createRequest(data: any) {
+async createRequest(data: any) {
+  console.log('=== CREATE REQUEST DEBUG ===');
+  console.log('Raw data:', JSON.stringify(data));
+  
+  try {
+    // Test 1: Check table exists
+    const tables = await this.db.query("SHOW TABLES LIKE 'adoption_requests'");
+    console.log('Table exists:', tables.length > 0);
+    
+    // Test 2: Check columns
+    const columns = await this.db.query("DESCRIBE adoption_requests");
+    console.log('Table columns:', columns.map((c: any) => c.Field));
+    
+    // Test 3: Test INSERT
     const {
       animal_id,
       full_name,
@@ -16,16 +29,26 @@ export class AdoptionService {
       experience,
     } = data;
 
-    // YOUR EXISTING SCHEMA - just add user_id
-    await this.db.query(
-      `INSERT INTO adoption_requests
-      (animal_id, full_name, email, phone, address, reason, experience, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?,?)`,
-      [animal_id, full_name, email, phone, address || null, reason || null, experience || null,'Pending']
+    const values = [animal_id, full_name, email, phone, address || null, reason || null, experience || null, 'Pending'];
+    console.log('INSERT values:', values);
+    
+    const result = await this.db.query(
+      `INSERT INTO adoption_requests 
+       (animal_id, full_name, email, phone, address, reason, experience, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      values
     );
-
+    
+    console.log('INSERT SUCCESS:', result);
     return { message: "Request submitted" };
+  } catch (error: any) {
+    console.error('=== CREATE ERROR ===');
+    console.error('SQL Message:', error.message);
+    console.error('SQL Code:', error.code);
+    console.error('SQL State:', error.sqlState);
+    throw error;
   }
+}
 
   // 🆕 Works with request_id PK + your exact columns
   async findAllRequests() {
