@@ -20,8 +20,8 @@ export class AdoptionService {
     await this.db.query(
       `INSERT INTO adoption_requests
       (animal_id, full_name, email, phone, address, reason, experience, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')`,
-      [animal_id, full_name, email, phone, address || null, reason || null, experience]
+      VALUES (?, ?, ?, ?, ?, ?, ?,?)`,
+      [animal_id, full_name, email, phone, address || null, reason || null, experience || null,'Pending']
     );
 
     return { message: "Request submitted" };
