@@ -6,14 +6,9 @@ export class AdoptionController {
   constructor(private readonly adoptionService: AdoptionService) {}
 
   @Post()
-async create(@Body() body: any, @Req() req: any) {
-  try {
-    return await this.adoptionService.createRequest(body);
-  } catch (error) {
-    console.error('Adoption create error:', error);
-    throw error;
+  create(@Body() body: any, @Req() req: any) {
+    return this.adoptionService.createRequest(body);
   }
-}
 
   @Get('requests')
   findAllRequests() {
@@ -21,12 +16,14 @@ async create(@Body() body: any, @Req() req: any) {
   }
 
   @Put(':id/approved')
-  approve(@Param('id', ParseIntPipe) id: number) {
+  async approve(@Param('id', ParseIntPipe) id: number) {
+    console.log(`Approving request ${id}`); // 🆕 LOG
     return this.adoptionService.updateStatus(id, 'Approved');
   }
 
   @Put(':id/rejected')
-  reject(@Param('id', ParseIntPipe) id: number) {
+  async reject(@Param('id', ParseIntPipe) id: number) {
+    console.log(`Rejecting request ${id}`); // 🆕 LOG
     return this.adoptionService.updateStatus(id, 'Rejected');
   }
 }
