@@ -8,6 +8,7 @@ export class AdoptionService {
   // 🆕 FIXED: Now saves user_id
 async createRequest(data: any) {
   const { 
+    user_id,
     animal_id,
     full_name, 
     email, 
@@ -76,37 +77,48 @@ async createRequest(data: any) {
   }
 
   async updateStatus(id: number, status: 'Approved' | 'Rejected') {
-    try {
-      const [rows]: any = await this.db.query(
-        'SELECT animal_id FROM adoption_requests WHERE request_id = ?',
-        [id]
-      );
+  try {
+    console.log(`🔍 Approving/Rejecting request ${id}`);
 
-      if (!rows || rows.length === 0) {
-        throw new NotFoundException('Request not found');
-      }
+    // 1. Get animal_id
+    const [rows]: any = await this.db.query(
+      'SELECT animal_id FROM adoption_requests WHERE request_id = ?',
+      [id]
+    );
 
-      const request = rows[0];
-
-      await this.db.query(
-        'UPDATE adoption_requests SET status = ? WHERE request_id = ?',
-        [status, id]
-      );
-
-      if (status === 'Approved') {
-        await this.db.query(
-          'UPDATE animals SET status = ? WHERE animal_id = ?',
-          ['Adopted', request.animal_id]
-        );
-      }
-
-      return { message: `Request ${status.toLowerCase()} successfully` };
-    } catch (error) {
-      console.error("🔥 UPDATE STATUS ERROR:", error);
-      throw error;
+    if (!rows || rows.length === 0) {
+      throw new NotFoundException('Request not found');
     }
-  }
 
+    const request = rows[0];
+    console.log(`🔍 Animal ID: ${request.animal_id}`);
+
+    // 2. Update request status
+    await this.db.query(
+      'UPDATE adoption_requests SET status = ? WHERE request_id = ?',
+      [status, id]
+    );
+
+    // 3. 🆘 ONLY for Approved - mark animal unavailable
+    if (status === 'Approved') {
+      await this.db.query(
+        'UPDATE animals SET available = 0 WHERE animal_id = ?',
+        [request.animal_id]
+      );
+      console.log(`✅ Animal ${request.animal_id} marked unavailable`);
+    }
+
+    return { 
+      success: true,
+      message: `Request ${status.toLowerCase()} successfully`,
+      details: { request_id: id, animal_id: request.animal_id, new_status: status }
+    };
+
+  } catch (error) {
+    console.error("🔥 ERROR:", error);
+    throw error;
+  }
+}
   // ✅ Perfect - no changes needed
 async clearAllHistory() {
   const result: any = await this.db.query(
