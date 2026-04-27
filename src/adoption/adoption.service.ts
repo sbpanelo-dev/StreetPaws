@@ -76,48 +76,48 @@ async createRequest(data: any) {
     }));
   }
 
-  async updateStatus(id: number, status: 'Approved' | 'Rejected') {
+  async updateStatus(id: number, status: string) {  // 🆕 Changed to string
   try {
-    console.log(`🔍 Approving/Rejecting request ${id}`);
+    console.log(`🔍 Updating request ${id} to "${status}"`);
 
-    // 1. Get animal_id
+    // 1. Check request exists
     const [rows]: any = await this.db.query(
       'SELECT animal_id FROM adoption_requests WHERE request_id = ?',
       [id]
     );
 
     if (!rows || rows.length === 0) {
-      throw new NotFoundException('Request not found');
+      throw new NotFoundException(`Request ${id} not found`);
     }
 
     const request = rows[0];
     console.log(`🔍 Animal ID: ${request.animal_id}`);
 
-    // 2. Update request status
+    // 2. Update REQUEST status
     await this.db.query(
       'UPDATE adoption_requests SET status = ? WHERE request_id = ?',
       [status, id]
     );
 
-    // 3. 🆘 ONLY for Approved - mark animal unavailable
+    // 3. 🆕 FIXED: Use YOUR schema (status='Adopted')
     if (status === 'Approved') {
       await this.db.query(
-        'UPDATE animals SET available = 0 WHERE animal_id = ?',
+        'UPDATE animals SET status = "Adopted" WHERE animal_id = ?',
         [request.animal_id]
       );
-      console.log(`✅ Animal ${request.animal_id} marked unavailable`);
+      console.log(`✅ Animal ${request.animal_id} marked Adopted`);
     }
 
     return { 
       success: true,
-      message: `Request ${status.toLowerCase()} successfully`,
-      details: { request_id: id, animal_id: request.animal_id, new_status: status }
+      message: `Request ${status.toLowerCase()} successfully`
     };
 
-  } catch (error) {
-    console.error("🔥 ERROR:", error);
-    throw error;
-  }
+} catch (error: any) {  // 🆕 Add :any
+  console.error(`🔥 updateStatus error:`, error.message);
+  throw error;
+}
+
 }
   // ✅ Perfect - no changes needed
 async clearAllHistory() {
