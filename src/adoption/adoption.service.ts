@@ -76,48 +76,38 @@ async createRequest(data: any) {
     }));
   }
 
-  async updateStatus(id: number, status: string) {  // 🆕 Changed to string
-  try {
-    console.log(`🔍 Updating request ${id} to "${status}"`);
+  async updateStatus(id: number, status: string) {
+  console.log(`🔍 ${id} -> ${status}`);
 
-    // 1. Check request exists
-    const [rows]: any = await this.db.query(
-      'SELECT animal_id FROM adoption_requests WHERE request_id = ?',
-      [id]
-    );
+  const [rows]: any = await this.db.query(
+    'SELECT animal_id FROM adoption_requests WHERE request_id = ?', [id]
+  );
 
-    if (!rows || rows.length === 0) {
-      throw new NotFoundException(`Request ${id} not found`);
-    }
-
-    const request = rows[0];
-    console.log(`🔍 Animal ID: ${request.animal_id}`);
-
-    // 2. Update REQUEST status
-    await this.db.query(
-      'UPDATE adoption_requests SET status = ? WHERE request_id = ?',
-      [status, id]
-    );
-
-    // 3. 🆕 FIXED: Use YOUR schema (status='Adopted')
-    if (status === 'Approved') {
-      await this.db.query(
-        'UPDATE animals SET status = "Adopted" WHERE animal_id = ?',
-        [request.animal_id]
-      );
-      console.log(`✅ Animal ${request.animal_id} marked Adopted`);
-    }
-
-    return { 
-      success: true,
-      message: `Request ${status.toLowerCase()} successfully`
+  if (!rows?.length) {
+    return {  // 🆕 RETURN instead of throw
+      success: false, 
+      message: `Request ${id} not found`
     };
+  }
 
-} catch (error: any) {  // 🆕 Add :any
-  console.error(`🔥 updateStatus error:`, error.message);
-  throw error;
-}
+  const request = rows[0];
 
+  await this.db.query(
+    'UPDATE adoption_requests SET status = ? WHERE request_id = ?', 
+    [status, id]
+  );
+
+  if (status === 'Approved') {
+    await this.db.query(
+      'UPDATE animals SET status = "Adopted" WHERE animal_id = ?', 
+      [request.animal_id]
+    );
+  }
+
+  return { 
+    success: true,
+    message: `Request ${status.toLowerCase()} successfully`
+  };
 }
   // ✅ Perfect - no changes needed
 async clearAllHistory() {
