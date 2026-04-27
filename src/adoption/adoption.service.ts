@@ -77,46 +77,59 @@ async createRequest(data: any) {
   }
 
   async updateStatus(id: number, status: string) {
-  console.log(`🔍 Checking request ${id}`);
+  try {
+    console.log(`1️⃣ START updateStatus(${id}, ${status})`);
 
-  // 🆕 Debug: Check ALL requests first
-  const [allRequests]: any = await this.db.query(
-    'SELECT request_id, status FROM adoption_requests WHERE request_id = ? OR request_id IN (39,41)', 
-    [id]
-  );
-  console.log(`🔍 DB records:`, allRequests);
+    // 🆕 SAFEST query - exact copy from findAllRequests
+    const requests = await this.db.query(`
+      SELECT 
+        request_id as id,
+        animal_id
+      FROM adoption_requests 
+      WHERE request_id = ?
+      ORDER BY created_at DESC
+    `, [id]);
 
-  // 🆕 Exact same query as findAllRequests
-  const requests = await this.db.query(
-    `SELECT request_id as id, animal_id FROM adoption_requests WHERE request_id = ?`,
-    [id]
-  );
-  console.log(`🔍 Query result:`, requests);
+    console.log(`2️⃣ Found:`, requests.length, 'records');
 
-  if (!requests || requests.length === 0) {
+    if (requests.length === 0) {
+      console.log(`3️⃣ Request ${id} not found`);
+      return { success: false, message: `Request ${id} not found` };
+    }
+
+    const request = requests[0];
+    console.log(`4️⃣ Animal ID:`, request.animal_id);
+
+    // Update request
+    await this.db.query(
+      `UPDATE adoption_requests SET status = ? WHERE request_id = ?`,
+      [status, id]
+    );
+    console.log(`5️⃣ Request updated`);
+
+    // Update animal if approved
+    if (status === 'Approved') {
+      await this.db.query(
+        `UPDATE animals SET status = 'Adopted' WHERE animal_id = ?`,
+        [request.animal_id]
+      );
+      console.log(`6️⃣ Animal updated`);
+    }
+
+    return { 
+      success: true, 
+      message: `Request ${status.toLowerCase()} OK`
+    };
+
+  } catch (error: any) {
+    console.error(`💥 CRASH:`, error?.message || 'Unknown');
     return { 
       success: false, 
-      message: `Request ${id} not found`,
-      debug: { all_ids: allRequests.map((r: any) => r.request_id) }
+      error: error?.message || 'Server error',
+      id: id,
+      status: status
     };
   }
-
-  const request = requests[0];
-  console.log(`✅ Using animal_id:`, request.animal_id);
-
-  await this.db.query(
-    'UPDATE adoption_requests SET status = ? WHERE request_id = ?', 
-    [status, id]
-  );
-
-  if (status === 'Approved') {
-    await this.db.query(
-      'UPDATE animals SET status = "Adopted" WHERE animal_id = ?', 
-      [request.animal_id]
-    );
-  }
-
-  return { success: true, message: `Request ${status.toLowerCase()} successfully` };
 }
   // ✅ Perfect - no changes needed
 async clearAllHistory() {
