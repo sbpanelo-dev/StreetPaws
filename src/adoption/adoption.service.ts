@@ -57,29 +57,38 @@ async findAllRequests() {
     status: req.status
   }));
 }
-  // 🆕 Works with request_id + your status enum
-async updateStatus(id: number, status: 'Approved' | 'Rejected') {
-  const [existing] = await this.db.query(
-    'SELECT animal_id FROM adoption_requests WHERE request_id = ?',
-    [id]
-  );
-
-  if (!existing) {
-    throw new NotFoundException('Request not found');
-  }
-
-  await this.db.query(
-    'UPDATE adoption_requests SET status = ? WHERE request_id = ?',
-    [status, id]
-  );
-
-  if (status === 'Approved') {
-    await this.db.query(
-      'UPDATE animals SET status = "Adopted" WHERE animal_id = ?',
-      [existing.animal_id]
+ async updateStatus(id: number, status: 'Approved' | 'Rejected') {
+  try {
+    const [rows]: any = await this.db.query(
+      'SELECT animal_id FROM adoption_requests WHERE request_id = ?',
+      [id]
     );
-  }
 
-  return { message: `Request ${status.toLowerCase()} successfully` };
+    // ✅ FIXED CHECK
+    if (!rows || rows.length === 0) {
+      throw new NotFoundException('Request not found');
+    }
+
+    const request = rows[0]; // ✅ GET FIRST ROW
+
+    await this.db.query(
+      'UPDATE adoption_requests SET status = ? WHERE request_id = ?',
+      [status, id]
+    );
+
+    // ✅ FIXED ACCESS
+    if (status === 'Approved') {
+      await this.db.query(
+        'UPDATE animals SET status = ? WHERE animal_id = ?',
+        ['Adopted', request.animal_id]
+      );
+    }
+
+    return { message: `Request ${status.toLowerCase()} successfully` };
+
+  } catch (error) {
+    console.error("🔥 UPDATE STATUS ERROR:", error);
+    throw error;
+  }
 }
 }
