@@ -77,20 +77,32 @@ async createRequest(data: any) {
   }
 
   async updateStatus(id: number, status: string) {
-  console.log(`🔍 ${id} -> ${status}`);
+  console.log(`🔍 Checking request ${id}`);
 
-  const [rows]: any = await this.db.query(
-    'SELECT animal_id FROM adoption_requests WHERE request_id = ?', [id]
+  // 🆕 Debug: Check ALL requests first
+  const [allRequests]: any = await this.db.query(
+    'SELECT request_id, status FROM adoption_requests WHERE request_id = ? OR request_id IN (39,41)', 
+    [id]
   );
+  console.log(`🔍 DB records:`, allRequests);
 
-  if (!rows?.length) {
-    return {  // 🆕 RETURN instead of throw
+  // 🆕 Exact same query as findAllRequests
+  const requests = await this.db.query(
+    `SELECT request_id as id, animal_id FROM adoption_requests WHERE request_id = ?`,
+    [id]
+  );
+  console.log(`🔍 Query result:`, requests);
+
+  if (!requests || requests.length === 0) {
+    return { 
       success: false, 
-      message: `Request ${id} not found`
+      message: `Request ${id} not found`,
+      debug: { all_ids: allRequests.map((r: any) => r.request_id) }
     };
   }
 
-  const request = rows[0];
+  const request = requests[0];
+  console.log(`✅ Using animal_id:`, request.animal_id);
 
   await this.db.query(
     'UPDATE adoption_requests SET status = ? WHERE request_id = ?', 
@@ -104,10 +116,7 @@ async createRequest(data: any) {
     );
   }
 
-  return { 
-    success: true,
-    message: `Request ${status.toLowerCase()} successfully`
-  };
+  return { success: true, message: `Request ${status.toLowerCase()} successfully` };
 }
   // ✅ Perfect - no changes needed
 async clearAllHistory() {
